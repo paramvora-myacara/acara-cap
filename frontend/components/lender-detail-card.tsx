@@ -15,14 +15,116 @@ interface LenderDetailCardProps {
   formData: FormData
   onClose: () => void
   color: string
+  onContactLender?: () => void
 }
 
-export default function LenderDetailCard({ lender, formData, onClose, color }: LenderDetailCardProps) {
+export default function LenderDetailCard({ lender, formData, onClose, color, onContactLender }: LenderDetailCardProps) {
   const router = useRouter()
+
   const matchDetails = getMatchDetails(formData, lender)
 
+  // Fix the match score display to ensure it's never 0% when there are matches
+  const displayMatchScore = () => {
+    // Debug the match score
+    console.log("Displaying match score for:", lender.user.company_name)
+    console.log("Raw match score:", lender.match_score)
+    console.log("Match details:", matchDetails)
+
+    // Calculate a score based on match details if the lender.match_score is missing or 0
+    // This ensures we show a non-zero score when there are actual matches
+    if (!lender.match_score || lender.match_score === 0) {
+      // Check if there are any matches in the details
+      const hasMatches =
+        matchDetails.asset_types.matches.length > 0 ||
+        matchDetails.deal_types.matches.length > 0 ||
+        matchDetails.capital_types.matches.length > 0 ||
+        matchDetails.locations.matches.length > 0 ||
+        matchDetails.loan_amount.matches
+
+      if (hasMatches) {
+        // Calculate a simple score based on the matches
+        let detailScore = 0
+        let criteriaCount = 0
+
+        if (matchDetails.asset_types.matches.length > 0) {
+          detailScore += matchDetails.asset_types.score
+          criteriaCount++
+        }
+
+        if (matchDetails.deal_types.matches.length > 0) {
+          detailScore += matchDetails.deal_types.score
+          criteriaCount++
+        }
+
+        if (matchDetails.capital_types.matches.length > 0) {
+          detailScore += matchDetails.capital_types.score
+          criteriaCount++
+        }
+
+        if (matchDetails.locations.matches.length > 0) {
+          detailScore += matchDetails.locations.score
+          criteriaCount++
+        }
+
+        if (matchDetails.loan_amount.matches) {
+          detailScore += matchDetails.loan_amount.score
+          criteriaCount++
+        }
+
+        // Calculate average score
+        const finalDetailScore = criteriaCount > 0 ? Math.round((detailScore / criteriaCount) * 100) : 0
+        console.log("Calculated detail-based score:", finalDetailScore)
+
+        // Return the calculated score (minimum 5% if there are any matches)
+        return Math.max(finalDetailScore, 5)
+      }
+    }
+
+    // If match_score is undefined or null, return 0
+    if (lender.match_score === undefined || lender.match_score === null) {
+      console.log("Match score is undefined or null, returning 0")
+      return 0
+    }
+
+    // Calculate percentage and check for NaN
+    const score = Math.round(lender.match_score * 100)
+    if (isNaN(score)) {
+      console.log("Calculated score is NaN, returning 0")
+      return 0
+    }
+
+    console.log("Calculated percentage score:", score)
+    return score
+  }
+
+  // Update the handleContactLender function to pass lender information to the registration page
   const handleContactLender = () => {
-    router.push("/login")
+    // Prepare lender data to pass to registration
+    const lenderData = {
+      lender_id: lender.lender_id,
+      company_name: lender.user.company_name,
+      match_score: lender.match_score || 0,
+    }
+
+    // Encode lender data and form criteria to pass via URL
+    const lenderParam = encodeURIComponent(JSON.stringify(lenderData))
+    const formDataParam = encodeURIComponent(
+      JSON.stringify({
+        asset_type: formData.asset_types[0] || "",
+        deal_type: formData.deal_types[0] || "",
+        capital_type: formData.capital_types[0] || "",
+        debt_request: formData.custom_min_debt_request || "",
+        location: formData.locations[0] || "",
+      }),
+    )
+
+    // Call the provided callback if it exists
+    if (onContactLender) {
+      onContactLender()
+    } else {
+      // Redirect with lender information
+      router.push(`/register?lender=${lenderParam}&formData=${formDataParam}`)
+    }
   }
 
   return (
@@ -37,10 +139,10 @@ export default function LenderDetailCard({ lender, formData, onClose, color }: L
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <span className="font-medium">Match Score:</span>
-            <span className="font-semibold">{Math.round((lender.match_score || 0) * 100)}%</span>
+            <span className="font-semibold">{displayMatchScore()}%</span>
           </div>
           <Progress
-            value={Math.round((lender.match_score || 0) * 100)}
+            value={displayMatchScore()}
             className="h-2"
             style={{ backgroundColor: "rgba(200, 200, 230, 0.3)" }}
             indicatorStyle={{ backgroundColor: color }}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import BorrowerForm from "@/components/borrower-form"
 import LenderGraph from "@/components/lender-graph"
-import { apiService } from "@/lib/api-service"
+import { mockApiService } from "@/lib/mock-api-service"
 import { calculateMatchScore } from "@/lib/matching-utils"
 
 export type FormData = {
@@ -72,7 +72,7 @@ export default function LenderMatchingPlatform() {
       try {
         setIsLoading(true)
         setError(null)
-        const response = await apiService.getPreliminaryMatches()
+        const response = await mockApiService.getPreliminaryMatches()
         if (response.success) {
           setLenders(response.lenders)
           setFilteredLenders(response.lenders)
@@ -100,68 +100,66 @@ export default function LenderMatchingPlatform() {
       formData.asset_types.length > 0 ||
       formData.deal_types.length > 0 ||
       formData.capital_types.length > 0 ||
+      formData.debt_ranges.length > 0 ||
       formData.locations.length > 0 ||
       formData.custom_min_debt_request !== "" ||
       formData.custom_max_debt_request !== ""
 
     setFiltersApplied(hasFilters)
 
+    // If no filters are applied, just show all lenders without scoring
+    if (!hasFilters) {
+      console.log("No filters applied, setting default scores")
+      setFilteredLenders(
+        lenders.map((lender) => ({
+          ...lender,
+          match_score: 0.5, // Default score
+        })),
+      )
+      return
+    }
+
+    console.log("Applying filters and calculating match scores")
+    console.log("Form data:", formData)
+
     // Filter and score lenders based on form data
-    let filtered = [...lenders]
+    const filtered = lenders.map((lender) => {
+      console.log("Calculating score for lender:", lender.user.company_name)
+      // Calculate match score here to ensure it's updated on each form change
+      const score = calculateMatchScore(formData, lender)
+      console.log(`${lender.user.company_name} score: ${score}`)
 
-    // Apply basic filtering
-    if (formData.asset_types.length > 0) {
-      filtered = filtered.filter((lender) =>
-        formData.asset_types.some((type) => lender.lending_criteria.asset_types.includes(type)),
-      )
-    }
+      // Make sure the score is a number between 0 and 1
+      const validScore = typeof score === "number" && !isNaN(score) ? Math.max(0, Math.min(1, score)) : 0
 
-    if (formData.deal_types.length > 0) {
-      filtered = filtered.filter((lender) =>
-        formData.deal_types.some((type) => lender.lending_criteria.deal_types.includes(type)),
-      )
-    }
-
-    if (formData.capital_types.length > 0) {
-      filtered = filtered.filter((lender) =>
-        formData.capital_types.some((type) => lender.lending_criteria.capital_types.includes(type)),
-      )
-    }
-
-    if (formData.locations.length > 0) {
-      filtered = filtered.filter((lender) =>
-        formData.locations.some((location) =>
-          lender.lending_criteria.locations.some((lenderLocation) => lenderLocation.includes(location)),
-        ),
-      )
-    }
-
-    const minDebt = formData.custom_min_debt_request ? Number.parseInt(formData.custom_min_debt_request) : 0
-    const maxDebt = formData.custom_max_debt_request
-      ? Number.parseInt(formData.custom_max_debt_request)
-      : Number.POSITIVE_INFINITY
-
-    if (minDebt > 0 || maxDebt < Number.POSITIVE_INFINITY) {
-      filtered = filtered.filter(
-        (lender) =>
-          lender.lending_criteria.max_loan_amount >= minDebt && lender.lending_criteria.min_loan_amount <= maxDebt,
-      )
-    }
-
-    // Calculate match scores using our new utility function
-    filtered = filtered.map((lender) => ({
-      ...lender,
-      match_score: calculateMatchScore(formData, lender),
-    }))
+      return {
+        ...lender,
+        match_score: validScore,
+      }
+    })
 
     // Sort by match score
-    filtered.sort((a, b) => (b.match_score || 0) - (a.match_score || 0))
+    const sortedFiltered = [...filtered].sort((a, b) => (b.match_score ?? 0) - (a.match_score ?? 0))
 
-    setFilteredLenders(filtered)
+    console.log(
+      "Filtered and scored lenders:",
+      sortedFiltered.map((l) => ({
+        name: l.user.company_name,
+        score: l.match_score,
+      })),
+    )
+
+    setFilteredLenders(sortedFiltered)
   }, [formData, lenders])
 
   const handleFormChange = (newFormData: Partial<FormData>) => {
-    setFormData((prev) => ({ ...prev, ...newFormData }))
+    setFormData((prev) => {
+      const updatedFormData = { ...prev, ...newFormData }
+      return updatedFormData
+    })
+
+    // Automatically set filters applied to true when form changes
+    setFiltersApplied(true)
   }
 
   return (

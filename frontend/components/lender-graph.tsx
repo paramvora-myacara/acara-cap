@@ -12,6 +12,7 @@ interface LenderGraphProps {
   lenders: LenderData[]
   formData?: FormData
   filtersApplied?: boolean
+  onLenderClick?: () => void
 }
 
 export default function LenderGraph({
@@ -26,6 +27,7 @@ export default function LenderGraph({
     locations: [],
   },
   filtersApplied = false,
+  onLenderClick,
 }: LenderGraphProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -90,6 +92,11 @@ export default function LenderGraph({
 
   // Generate colors based on lender properties
   const getLenderColor = (lender: LenderData, useGrey = false) => {
+    // Debug the lender match score
+    console.log(
+      `Getting color for ${lender.user.company_name}, match score: ${lender.match_score}, useGrey: ${useGrey}`,
+    )
+
     // If filters aren't applied or we're explicitly told to use grey, return a grey color
     if (useGrey || !filtersApplied) {
       return `hsl(220, 10%, 70%)`
@@ -115,8 +122,13 @@ export default function LenderGraph({
       hue = assetTypeMap[primaryType] || hue
     }
 
+    // Ensure match_score is a number between 0 and 1
+    const matchScore = typeof lender.match_score === "number" ? Math.max(0, Math.min(1, lender.match_score)) : 0
+
+    console.log(`Using match score: ${matchScore} for color calculation`)
+
     // Saturation based on match score (higher match = more saturated)
-    const saturation = 70 + (lender.match_score || 0) * 30
+    const saturation = 70 + matchScore * 30
 
     // Lightness based on loan amount (higher amount = darker)
     const normalizedAmount = Math.min(lender.lending_criteria.max_loan_amount / 15000000, 1)
@@ -134,6 +146,16 @@ export default function LenderGraph({
 
     // Sort lenders by match score for better initial positioning
     const sortedLenders = [...lenders].sort((a, b) => (b.match_score || 0) - (a.match_score || 0))
+
+    // Debug match scores
+    console.log(
+      "Lenders with match scores:",
+      sortedLenders.map((l) => ({
+        name: l.user.company_name,
+        score: l.match_score,
+        criteria: l.lending_criteria,
+      })),
+    )
 
     // Calculate max distance to ensure lenders stay within bounds
     // Use 80% of the smaller dimension to ensure lenders stay within view
@@ -209,7 +231,7 @@ export default function LenderGraph({
 
         // Vary the distance from center based on index and add some randomness
         // This creates a spiral pattern with some natural variation
-        const distanceFactor = 0.2 + (index / sortedLenders.length) * 0.8
+        const distanceFactor = 0.2 + (index / sortedLenders.length) * 0.08
         const baseDistance = maxDistance * distanceFactor
         const randomVariation = baseDistance * 0.2 // 20% random variation
         const distance = baseDistance + (Math.random() * randomVariation * 2 - randomVariation)
@@ -245,7 +267,7 @@ export default function LenderGraph({
     }
 
     lenderPositionsRef.current = newPositions
-  }, [lenders, canvasSize, filtersApplied])
+  }, [lenders, canvasSize, filtersApplied, formData]) // Added formData as a dependency
 
   // Add particles
   const addParticles = (x: number, y: number, color: string, count = 5) => {
@@ -299,10 +321,10 @@ export default function LenderGraph({
       ctx.fillRect(0, 0, canvasSize.width, canvasSize.height)
 
       // Draw decorative circles
-      ctx.strokeStyle = "rgba(180, 180, 230, 0.2)"
+      ctx.strokeStyle = "rgba(200, 200, 230, 0.2)"
       ctx.lineWidth = 1
 
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 6; i++) {
         const radius = i * (Math.min(canvasSize.width, canvasSize.height) * 0.1)
         ctx.beginPath()
         ctx.arc(centerPoint.x, centerPoint.y, radius, 0, Math.PI * 2)
@@ -578,6 +600,8 @@ export default function LenderGraph({
     }
   }
 
+  // Make sure the LenderDetailCard is properly displayed
+  // The issue might be in the render function, so let's ensure the card is shown
   return (
     <div className="h-full flex flex-col" ref={containerRef}>
       <div className="mb-4 flex justify-between items-center">
@@ -614,6 +638,7 @@ export default function LenderGraph({
               formData={formData}
               onClose={() => setSelectedLender(null)}
               color={getLenderColor(selectedLender, !filtersApplied)}
+              onContactLender={onLenderClick}
             />
           </div>
         )}

@@ -2,11 +2,11 @@
 
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox" // Import Checkbox component
 import { X } from "lucide-react"
 import type { FormData } from "./lender-matching-platform"
 
@@ -15,17 +15,13 @@ const ASSET_TYPES = ["Multifamily", "Office", "Retail", "Industrial", "Hotel", "
 const DEAL_TYPES = ["Acquisition", "Refinance", "Construction", "Bridge", "Value-Add", "Development"]
 const CAPITAL_TYPES = ["Debt", "Equity", "Mezzanine"]
 const DEBT_RANGES = ["$1M - $5M", "$5M - $10M", "$10M - $25M", "$25M - $50M", "$50M+"]
-// Remove the hardcoded LOCATIONS constant
-// const LOCATIONS = ["New York", "Los Angeles", "Chicago", "San Francisco", "Miami", "Boston"]
 
-// Update the interface to accept availableLocations
 interface BorrowerFormProps {
   formData: FormData
   onChange: (data: Partial<FormData>) => void
   availableLocations?: string[]
 }
 
-// Update the component to use the provided locations or fallback to an empty array
 export default function BorrowerForm({ formData, onChange, availableLocations = [] }: BorrowerFormProps) {
   const [tempSelection, setTempSelection] = useState({
     asset_type: "",
@@ -57,8 +53,21 @@ export default function BorrowerForm({ formData, onChange, availableLocations = 
     }
   }
 
+  const handleCheckboxChange = (field: keyof FormData, value: string, checked: boolean) => {
+    if (Array.isArray(formData[field])) {
+      const currentValues = formData[field] as string[]
+      if (checked && !currentValues.includes(value)) {
+        onChange({ [field]: [...currentValues, value] })
+      } else if (!checked && currentValues.includes(value)) {
+        onChange({ [field]: currentValues.filter((item) => item !== value) })
+      }
+    }
+    // No need for a delay - changes are applied immediately
+  }
+
   const handleInputChange = (field: keyof FormData, value: string) => {
     onChange({ [field]: value })
+    // Changes are applied immediately
   }
 
   return (
@@ -72,7 +81,7 @@ export default function BorrowerForm({ formData, onChange, availableLocations = 
       <CardContent className="space-y-6">
         {/* Asset Types */}
         <div className="space-y-2">
-          <Label htmlFor="asset-type">Asset Types</Label>
+          <Label>Asset Types</Label>
           <div className="flex flex-wrap gap-2 mb-2">
             {formData.asset_types.map((type) => (
               <Badge key={type} variant="secondary" className="flex items-center gap-1">
@@ -81,29 +90,25 @@ export default function BorrowerForm({ formData, onChange, availableLocations = 
               </Badge>
             ))}
           </div>
-          <Select
-            value={tempSelection.asset_type || ""}
-            onValueChange={(value) => {
-              setTempSelection((prev) => ({ ...prev, asset_type: "" }))
-              handleAddItem("asset_types", value)
-            }}
-          >
-            <SelectTrigger id="asset-type">
-              <SelectValue placeholder="Select asset types" />
-            </SelectTrigger>
-            <SelectContent>
-              {ASSET_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
+          <div className="grid grid-cols-2 gap-2">
+            {ASSET_TYPES.map((type) => (
+              <div key={type} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`asset-${type}`}
+                  checked={formData.asset_types.includes(type)}
+                  onCheckedChange={(checked) => handleCheckboxChange("asset_types", type, checked as boolean)}
+                />
+                <Label htmlFor={`asset-${type}`} className="text-sm font-normal cursor-pointer">
                   {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                </Label>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Deal Types */}
         <div className="space-y-2">
-          <Label htmlFor="deal-type">Deal Types</Label>
+          <Label>Deal Types</Label>
           <div className="flex flex-wrap gap-2 mb-2">
             {formData.deal_types.map((type) => (
               <Badge key={type} variant="secondary" className="flex items-center gap-1">
@@ -112,29 +117,25 @@ export default function BorrowerForm({ formData, onChange, availableLocations = 
               </Badge>
             ))}
           </div>
-          <Select
-            value={tempSelection.deal_type}
-            onValueChange={(value) => {
-              setTempSelection((prev) => ({ ...prev, deal_type: value }))
-              handleAddItem("deal_types", value)
-            }}
-          >
-            <SelectTrigger id="deal-type">
-              <SelectValue placeholder="Select deal types" />
-            </SelectTrigger>
-            <SelectContent>
-              {DEAL_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
+          <div className="grid grid-cols-2 gap-2">
+            {DEAL_TYPES.map((type) => (
+              <div key={type} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`deal-${type}`}
+                  checked={formData.deal_types.includes(type)}
+                  onCheckedChange={(checked) => handleCheckboxChange("deal_types", type, checked as boolean)}
+                />
+                <Label htmlFor={`deal-${type}`} className="text-sm font-normal cursor-pointer">
                   {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                </Label>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Capital Types */}
         <div className="space-y-2">
-          <Label htmlFor="capital-type">Capital Types</Label>
+          <Label>Capital Types</Label>
           <div className="flex flex-wrap gap-2 mb-2">
             {formData.capital_types.map((type) => (
               <Badge key={type} variant="secondary" className="flex items-center gap-1">
@@ -143,29 +144,25 @@ export default function BorrowerForm({ formData, onChange, availableLocations = 
               </Badge>
             ))}
           </div>
-          <Select
-            value={tempSelection.capital_type}
-            onValueChange={(value) => {
-              setTempSelection((prev) => ({ ...prev, capital_type: value }))
-              handleAddItem("capital_types", value)
-            }}
-          >
-            <SelectTrigger id="capital-type">
-              <SelectValue placeholder="Select capital types" />
-            </SelectTrigger>
-            <SelectContent>
-              {CAPITAL_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
+          <div className="grid grid-cols-2 gap-2">
+            {CAPITAL_TYPES.map((type) => (
+              <div key={type} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`capital-${type}`}
+                  checked={formData.capital_types.includes(type)}
+                  onCheckedChange={(checked) => handleCheckboxChange("capital_types", type, checked as boolean)}
+                />
+                <Label htmlFor={`capital-${type}`} className="text-sm font-normal cursor-pointer">
                   {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                </Label>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Debt Ranges */}
         <div className="space-y-2">
-          <Label htmlFor="debt-range">Debt Ranges</Label>
+          <Label>Debt Ranges</Label>
           <div className="flex flex-wrap gap-2 mb-2">
             {formData.debt_ranges.map((range) => (
               <Badge key={range} variant="secondary" className="flex items-center gap-1">
@@ -174,30 +171,49 @@ export default function BorrowerForm({ formData, onChange, availableLocations = 
               </Badge>
             ))}
           </div>
-          <Select
-            value={tempSelection.debt_range}
-            onValueChange={(value) => {
-              setTempSelection((prev) => ({ ...prev, debt_range: value }))
-              handleAddItem("debt_ranges", value)
-            }}
-          >
-            <SelectTrigger id="debt-range">
-              <SelectValue placeholder="Select debt ranges" />
-            </SelectTrigger>
-            <SelectContent>
-              {DEBT_RANGES.map((range) => (
-                <SelectItem key={range} value={range}>
+          <div className="grid grid-cols-2 gap-2">
+            {["$1M - $5M", "$5M - $10M", "$10M - $25M", "$25M - $50M", "$50M - $100M", "$100M+"].map((range) => (
+              <div key={range} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`debt-${range}`}
+                  checked={formData.debt_ranges.includes(range)}
+                  onCheckedChange={(checked) => handleCheckboxChange("debt_ranges", range, checked as boolean)}
+                />
+                <Label htmlFor={`debt-${range}`} className="text-sm font-normal cursor-pointer">
                   {range}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                </Label>
+              </div>
+            ))}
+          </div>
         </div>
 
+        {/* Custom Debt Request */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="min-debt">Min Debt ($)</Label>
+            <Input
+              id="min-debt"
+              type="number"
+              placeholder="1,000,000"
+              value={formData.custom_min_debt_request}
+              onChange={(e) => handleInputChange("custom_min_debt_request", e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="max-debt">Max Debt ($)</Label>
+            <Input
+              id="max-debt"
+              type="number"
+              placeholder="50,000,000"
+              value={formData.custom_max_debt_request}
+              onChange={(e) => handleInputChange("custom_max_debt_request", e.target.value)}
+            />
+          </div>
+        </div>
 
         {/* Locations */}
         <div className="space-y-2">
-          <Label htmlFor="location">Locations</Label>
+          <Label>Locations</Label>
           <div className="flex flex-wrap gap-2 mb-2">
             {formData.locations.map((location) => (
               <Badge key={location} variant="secondary" className="flex items-center gap-1">
@@ -206,30 +222,26 @@ export default function BorrowerForm({ formData, onChange, availableLocations = 
               </Badge>
             ))}
           </div>
-          <Select
-            value={tempSelection.location}
-            onValueChange={(value) => {
-              setTempSelection((prev) => ({ ...prev, location: value }))
-              handleAddItem("locations", value)
-            }}
-          >
-            <SelectTrigger id="location">
-              <SelectValue placeholder={availableLocations.length > 0 ? "Select locations" : "Loading locations..."} />
-            </SelectTrigger>
-            <SelectContent>
+          <div className="h-40 overflow-y-auto border rounded-md p-2">
+            <div className="grid grid-cols-2 gap-2">
               {availableLocations.length > 0 ? (
                 availableLocations.map((location) => (
-                  <SelectItem key={location} value={location}>
-                    {location}
-                  </SelectItem>
+                  <div key={location} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`location-${location}`}
+                      checked={formData.locations.includes(location)}
+                      onCheckedChange={(checked) => handleCheckboxChange("locations", location, checked as boolean)}
+                    />
+                    <Label htmlFor={`location-${location}`} className="text-sm font-normal cursor-pointer">
+                      {location}
+                    </Label>
+                  </div>
                 ))
               ) : (
-                <SelectItem value="loading" disabled>
-                  No locations available
-                </SelectItem>
+                <div className="col-span-2 text-center py-4">No locations available</div>
               )}
-            </SelectContent>
-          </Select>
+            </div>
+          </div>
         </div>
 
         <Button
